@@ -1,11 +1,9 @@
 using System;
 using System.Device.Gpio;
-using System.Device.I2c;
 using System.Diagnostics;
 using System.Threading;
-using nanoFramework.Hardware.Esp32;
 using Iot.Device.Ssd13xx;
-using Iot.Device.Ssd13xx.Samples;
+using NFTempProject.Initialization;
 
 namespace NFTempProject
 {
@@ -25,9 +23,10 @@ namespace NFTempProject
 
             try
             {
-                InitializeHardware();
-                InitializeTemperatureState();
-                WireButtons();
+                HardwareInitializer.Initialize(out _gpio, out _display);
+                TemperatureInitializer.Initialize(_gpio, _display, out _tempState, out _leds, out _displayRenderer,
+                    preferred: 21.0, initialActual: 21.0, tolerance: 0.5);
+                ButtonInitializer.WireButtons(_gpio, BtnDown, BtnUp, BtnReset);
 
                 // Initial sensor read
                 if (!TryRefreshFromSensor())
@@ -47,44 +46,6 @@ namespace NFTempProject
             }
 
             Thread.Sleep(Timeout.Infinite);
-        }
-
-        private static void InitializeHardware()
-        {
-            // I2C pin assignment (per board specifics)
-            Configuration.SetPinFunction(32, DeviceFunction.COM3_RX);
-            Configuration.SetPinFunction(14, DeviceFunction.COM3_TX);
-            Configuration.SetPinFunction(21, DeviceFunction.I2C1_DATA);
-            Configuration.SetPinFunction(22, DeviceFunction.I2C1_CLOCK);
-
-            _gpio = new GpioController();
-
-            var i2c = I2cDevice.Create(new I2cConnectionSettings(1, Ssd1306.DefaultI2cAddress));
-            _display = new Ssd1306(i2c, Ssd13xx.DisplayResolution.OLED128x32)
-            {
-                Font = new BasicFont()
-            };
-            _display.ClearScreen();
-            _display.Display();
-        }
-
-        private static void InitializeTemperatureState()
-        {
-            _tempState = new TemperatureState(preferred: 21.0, initialActual: 21.0, tolerance: 0.25);
-            _leds = new LedIndicator(_gpio, _tempState);
-            _leds.InitializePins();
-            _displayRenderer = new DisplayRenderer(_display, _tempState);
-        }
-
-        private static void WireButtons()
-        {
-            _gpio.OpenPin(PinConfig.BtnDown, PinMode.InputPullUp);
-            _gpio.OpenPin(PinConfig.BtnUp, PinMode.InputPullUp);
-            _gpio.OpenPin(PinConfig.BtnReset, PinMode.InputPullUp);
-
-            _gpio.RegisterCallbackForPinValueChangedEvent(PinConfig.BtnDown, PinEventTypes.Falling, BtnDown);
-            _gpio.RegisterCallbackForPinValueChangedEvent(PinConfig.BtnUp, PinEventTypes.Falling, BtnUp);
-            _gpio.RegisterCallbackForPinValueChangedEvent(PinConfig.BtnReset, PinEventTypes.Falling, BtnReset);
         }
 
         private static void BtnDown(object sender, PinValueChangedEventArgs e)

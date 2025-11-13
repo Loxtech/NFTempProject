@@ -22,7 +22,11 @@
     <Compile Include="ButtonDebouncer.cs" />
     <Compile Include="DisplayRenderer.cs" />
     <Compile Include="DoubleByteFont.cs" />
+    <Compile Include="Initialization\ButtonInitializer.cs" />
+    <Compile Include="Initialization\HardwareInitializer.cs" />
+    <Compile Include="Initialization\TemperatureInitializer.cs" />
     <Compile Include="LedIndicator.cs" />
+    <Compile Include="Logging\TemperatureLogger.cs" />
     <Compile Include="PinConfig.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
