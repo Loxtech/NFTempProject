@@ -16,7 +16,12 @@ namespace NFTempProject.Initialization
 
             gpio.RegisterCallbackForPinValueChangedEvent(PinConfig.BtnDown, PinEventTypes.Falling, onDown);
             gpio.RegisterCallbackForPinValueChangedEvent(PinConfig.BtnUp, PinEventTypes.Falling, onUp);
-            gpio.RegisterCallbackForPinValueChangedEvent(PinConfig.BtnReset, PinEventTypes.Falling, onReset);
+
+            // Register BOTH edges in one registration to avoid overriding previous handler
+            gpio.RegisterCallbackForPinValueChangedEvent(
+                PinConfig.BtnReset,
+                PinEventTypes.Falling | PinEventTypes.Rising,
+                onReset);
         }
     }
 }

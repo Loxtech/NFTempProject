@@ -23,7 +23,7 @@ namespace NFTempProject
                     if (sensor.Initialize() && sensor.TryReadTemperature(out var temp))
                     {
                         value = temp.DegreesCelsius;
-                        Debug.WriteLine($"Sensor read: {value:F2}°C");
+                        Debug.WriteLine($"Sensor Temperature: {value:F2}°C");
                         return true;
                     }
                 }

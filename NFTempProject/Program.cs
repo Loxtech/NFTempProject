@@ -4,40 +4,54 @@ using System.Diagnostics;
 using System.Threading;
 using Iot.Device.Ssd13xx;
 using NFTempProject.Initialization;
+using NFTempProject.Logging;
+using NFTempProject.Time; // + added
 
 namespace NFTempProject
 {
     public class Program
     {
-        // Core state/services
         private static TemperatureState _tempState;
         private static LedIndicator _leds;
         private static DisplayRenderer _displayRenderer;
+        private static TemperatureLogService _logService;
 
         private static GpioController _gpio;
         private static Ssd1306 _display;
 
+        // Reset long-press detection
+        private const int ResetLongPressMs = 5000; // 5 seconds
+        private static long _resetPressStartMs = -1;
+
         public static void Main()
         {
-            Debug.WriteLine("Main starting...");
+            Debug.WriteLine("Thermostat Starting...");
 
             try
             {
                 HardwareInitializer.Initialize(out _gpio, out _display);
                 TemperatureInitializer.Initialize(_gpio, _display, out _tempState, out _leds, out _displayRenderer,
                     preferred: 21.0, initialActual: 21.0, tolerance: 0.5);
+
+                // Wire buttons; Reset now registered for both edges in ButtonInitializer
                 ButtonInitializer.WireButtons(_gpio, BtnDown, BtnUp, BtnReset);
 
-                // Initial sensor read
+                // Manually set RTC if invalid (replace with your current UTC)
+                if (!ClockService.IsDateTimeValid())
+                {
+                    ClockService.SetManualUtc(2025, 11, 13, 12, 00, 00, silent: true);
+                }
+
                 if (!TryRefreshFromSensor())
                 {
                     Debug.WriteLine("Initial sensor read failed; using defaults.");
                 }
 
-                // Initial UI
                 RefreshUi();
 
-                // Keep application alive
+                // Start logging (1 minute for test; use 3_600_000 for hourly)
+                _logService = new TemperatureLogService(_tempState, periodMs: 60_000, silent: true);
+
                 Thread.Sleep(Timeout.Infinite);
             }
             catch (Exception ex)
@@ -52,7 +66,7 @@ namespace NFTempProject
         {
             if (ButtonDebouncer.Down()) return;
             _tempState.AdjustActual(-0.5);
-            Debug.WriteLine($"(Simulated) actual decreased -> {_tempState.Actual:F1}°C");
+            Debug.WriteLine($"Temperature decreased -> {_tempState.Actual:F1}°C");
             RefreshUi();
         }
 
@@ -60,23 +74,54 @@ namespace NFTempProject
         {
             if (ButtonDebouncer.Up()) return;
             _tempState.AdjustActual(0.5);
-            Debug.WriteLine($"(Simulated) actual increased -> {_tempState.Actual:F1}°C");
+            Debug.WriteLine($"Temperature increased -> {_tempState.Actual:F1}°C");
             RefreshUi();
         }
 
         private static void BtnReset(object sender, PinValueChangedEventArgs e)
         {
-            if (ButtonDebouncer.Reset()) return;
-
-            if (!TryRefreshFromSensor())
+            // Falling = button pressed (with PullUp), start timing (debounced)
+            if (e.ChangeType == PinEventTypes.Falling)
             {
-                _tempState.UseLastSensorAsActual();
-                Debug.WriteLine("Reset: sensor read failed, using last sensor value.");
+                if (ButtonDebouncer.Reset()) return;
+                _resetPressStartMs = UtcMs();
+                return;
             }
 
-            Debug.WriteLine($"(Reset) actual -> {_tempState.Actual:F1}°C");
-            RefreshUi();
+            // Rising = button released, decide action by press duration
+            if (e.ChangeType == PinEventTypes.Rising)
+            {
+                if (_resetPressStartMs < 0)
+                {
+                    return; // no valid start recorded
+                }
+
+                long elapsed = UtcMs() - _resetPressStartMs;
+                _resetPressStartMs = -1;
+
+                if (elapsed >= ResetLongPressMs)
+                {
+                    // Long press: show log tail, do NOT perform reset
+                    if (_logService != null)
+                    {
+                        LogInspector.DumpTail(_logService.LogFilePath, maxBytes: 512);
+                    }
+                    return;
+                }
+
+                // Short press: perform regular reset
+                if (!TryRefreshFromSensor())
+                {
+                    _tempState.UseLastSensorAsActual();
+                    Debug.WriteLine("Reset: sensor read failed, using last sensor value.");
+                }
+
+                Debug.WriteLine($"(Reset Temperature) -> {_tempState.Actual:F1}°C");
+                RefreshUi();
+            }
         }
+
+        private static long UtcMs() => DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
 
         private static bool TryRefreshFromSensor()
         {
