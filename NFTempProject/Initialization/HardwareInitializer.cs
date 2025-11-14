@@ -10,7 +10,6 @@ namespace NFTempProject.Initialization
     {
         public static void Initialize(out GpioController gpio, out Ssd1306 display)
         {
-            // I2C/UART pin assignment
             Configuration.SetPinFunction(32, DeviceFunction.COM3_RX);
             Configuration.SetPinFunction(14, DeviceFunction.COM3_TX);
             Configuration.SetPinFunction(21, DeviceFunction.I2C1_DATA);

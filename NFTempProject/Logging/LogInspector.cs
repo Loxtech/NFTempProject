@@ -6,7 +6,6 @@ namespace NFTempProject.Logging
 {
     internal static class LogInspector
     {
-        // Dumps the last maxBytes of the log to Debug output (safe on constrained devices)
         public static void DumpTail(string path, int maxBytes = 512)
         {
             try

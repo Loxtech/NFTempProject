@@ -6,10 +6,8 @@ namespace NFTempProject.Time
 {
     internal static class ClockService
     {
-        // Consider time valid if not the default epoch.
         public static bool IsDateTimeValid() => DateTime.UtcNow.Year >= 2023;
 
-        // Set system clock (expects UTC).
         // silent = true suppresses success output.
         public static void SetManualUtc(int year, int month, int day, int hour, int minute, int second, bool silent = true)
         {
@@ -23,7 +21,6 @@ namespace NFTempProject.Time
             }
             catch (Exception ex)
             {
-                // Keep error logging so failures aren’t hidden.
                 Debug.WriteLine($"[ClockService] SetManualUtc error: {ex}");
             }
         }

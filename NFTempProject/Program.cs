@@ -5,7 +5,7 @@ using System.Threading;
 using Iot.Device.Ssd13xx;
 using NFTempProject.Initialization;
 using NFTempProject.Logging;
-using NFTempProject.Time; // + added
+using NFTempProject.Time;
 
 namespace NFTempProject
 {
@@ -33,13 +33,12 @@ namespace NFTempProject
                 TemperatureInitializer.Initialize(_gpio, _display, out _tempState, out _leds, out _displayRenderer,
                     preferred: 21.0, initialActual: 21.0, tolerance: 0.5);
 
-                // Wire buttons; Reset now registered for both edges in ButtonInitializer
                 ButtonInitializer.WireButtons(_gpio, BtnDown, BtnUp, BtnReset);
 
                 // Manually set RTC if invalid (replace with your current UTC)
                 if (!ClockService.IsDateTimeValid())
                 {
-                    ClockService.SetManualUtc(2025, 11, 13, 12, 00, 00, silent: true);
+                    ClockService.SetManualUtc(2025, 11, 14, 11, 57, 00, silent: true);
                 }
 
                 if (!TryRefreshFromSensor())
@@ -49,7 +48,7 @@ namespace NFTempProject
 
                 RefreshUi();
 
-                // Start logging (1 minute for test; use 3_600_000 for hourly)
+                // Start logging (1 minute for test; use 900_000 for every 15 minutes)
                 _logService = new TemperatureLogService(_tempState, periodMs: 60_000, silent: true);
 
                 Thread.Sleep(Timeout.Infinite);
@@ -93,7 +92,7 @@ namespace NFTempProject
             {
                 if (_resetPressStartMs < 0)
                 {
-                    return; // no valid start recorded
+                    return; 
                 }
 
                 long elapsed = UtcMs() - _resetPressStartMs;
@@ -101,7 +100,7 @@ namespace NFTempProject
 
                 if (elapsed >= ResetLongPressMs)
                 {
-                    // Long press: show log tail, do NOT perform reset
+                    // Long press: shows log, does not perform reset
                     if (_logService != null)
                     {
                         LogInspector.DumpTail(_logService.LogFilePath, maxBytes: 512);
@@ -109,7 +108,7 @@ namespace NFTempProject
                     return;
                 }
 
-                // Short press: perform regular reset
+                // Short press: reset current temperature to sensor value
                 if (!TryRefreshFromSensor())
                 {
                     _tempState.UseLastSensorAsActual();
